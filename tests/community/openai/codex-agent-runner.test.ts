@@ -415,6 +415,27 @@ describe("CodexAgentRunner._parseStreamLine", () => {
     expect(agents).not.toContain("Claude Code");
   });
 
+  test("syncing AGENTS.md preserves existing project instructions", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "agentara-codex-runner-"));
+    tempDirs.push(cwd);
+    const existingAgents = "# Project Instructions\n\nKeep this project's AGENTS.md.\n";
+    writeFileSync(
+      join(cwd, "CLAUDE.md"),
+      "# Title\n\nAs Claude Code, use the shared instructions.\n",
+      "utf-8",
+    );
+    writeFileSync(join(cwd, "AGENTS.md"), existingAgents, "utf-8");
+
+    const runner = new CodexAgentRunner() as unknown as Record<
+      string,
+      CallableFunction
+    >;
+    runner["_syncAgentsMd"]!(cwd);
+
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf-8");
+    expect(agents).toBe(existingAgents);
+  });
+
   test("builds resume args with runnerSessionId when available", () => {
     const runner = new CodexAgentRunner() as unknown as Record<
       string,

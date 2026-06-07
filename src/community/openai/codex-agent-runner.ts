@@ -510,12 +510,16 @@ export class CodexAgentRunner implements AgentRunner {
 
       const agentsMdPath = join(cwd, "AGENTS.md");
 
-      // Skip write when contents are identical to avoid file-watcher churn.
       if (existsSync(agentsMdPath)) {
         const existing = readFileSync(agentsMdPath, "utf-8");
+        // Skip write when contents are identical to avoid file-watcher churn.
         if (existing === normalized) {
           return;
         }
+        logger.warn(
+          "AGENTS.md already exists; skipping CLAUDE.md sync to avoid overwriting project instructions",
+        );
+        return;
       }
 
       writeFileSync(agentsMdPath, normalized, "utf-8");
