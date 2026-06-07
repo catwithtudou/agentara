@@ -280,6 +280,78 @@ export interface ClaudeUsage {
 }
 
 /**
+ * Token usage values emitted by Codex token_count events.
+ */
+export interface CodexTokenUsage {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  reasoning_output_tokens: number;
+  total_tokens: number;
+}
+
+/**
+ * Codex rate-limit window telemetry derived from local session logs.
+ */
+export interface CodexRateLimitWindow {
+  used_percent: number;
+  window_minutes: number | null;
+  resets_at: string | null;
+}
+
+/**
+ * Local Codex usage telemetry inferred from Codex session JSONL files.
+ */
+export interface CodexUsageTelemetry {
+  captured_at: string;
+  codex_home: string;
+  plan_type: string | null;
+  rate_limits: {
+    primary: CodexRateLimitWindow | null;
+    secondary: CodexRateLimitWindow | null;
+    rate_limit_reached_type: string | null;
+  };
+  token_usage: {
+    total: CodexTokenUsage | null;
+    last: CodexTokenUsage | null;
+    model_context_window: number | null;
+  };
+}
+
+/**
+ * Explains why usage telemetry cannot be shown for the active configuration.
+ */
+export interface UsageUnavailable {
+  reason: string;
+  codex_home?: string;
+}
+
+/**
+ * Usage response for whichever agent is active in the local Agentara config.
+ */
+export type CurrentUsage =
+  | {
+      active_agent_type: string;
+      provider: "claude";
+      claude: {
+        usage: ClaudeUsage;
+      };
+    }
+  | {
+      active_agent_type: string;
+      provider: "codex";
+      codex: {
+        usage: CodexUsageTelemetry | null;
+        unavailable: UsageUnavailable | null;
+      };
+    }
+  | {
+      active_agent_type: string;
+      provider: "unavailable";
+      unavailable: UsageUnavailable;
+    };
+
+/**
  * Fetches Claude usage data from /api/usage/claude.
  */
 export function useClaudeUsage() {
@@ -296,6 +368,23 @@ export function useClaudeUsage() {
       }
       if (!json.usage) throw new Error("Invalid usage response");
       return json.usage;
+    },
+  });
+}
+
+/**
+ * Fetches usage data for the currently configured default agent.
+ */
+export function useCurrentUsage() {
+  return useQuery({
+    queryKey: ["usage", "current"],
+    queryFn: async () => {
+      const res = await api.usage.current.$get();
+      const json = (await res.json()) as CurrentUsage & { error?: string };
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to fetch usage");
+      }
+      return json;
     },
   });
 }
