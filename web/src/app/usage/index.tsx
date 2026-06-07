@@ -38,12 +38,14 @@ function formatResetsAt(resetsAt: string): string {
 
 function UsagePage() {
   const {
-    data: usage,
+    data: usageStatus,
     isLoading,
     isRefetching,
     refetch,
     dataUpdatedAt,
   } = useClaudeUsage();
+  const usage = usageStatus?.usage ?? null;
+  const unavailable = usageStatus?.unavailable ?? null;
 
   const lastUpdatedLabel =
     dataUpdatedAt != null
@@ -58,6 +60,16 @@ function UsagePage() {
             <CardTitle>Claude usage limits</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
+            {unavailable ? (
+              <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Claude usage is unavailable because the active agent is{" "}
+                <span className="font-medium text-foreground">
+                  {unavailable.active_agent_type}
+                </span>
+                .
+              </p>
+            ) : null}
+
             {/* Current session (five_hour) */}
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-medium">Current session</h3>

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { createLogger } from "@/shared";
+import { config, createLogger } from "@/shared";
 
 const logger = createLogger("usage");
 
@@ -75,17 +75,48 @@ async function queryClaudeUsage() {
 }
 
 /**
- * Usage route group. Serves Claude usage / credentials data.
+ * Options for wiring usage routes in tests or alternate runtime contexts.
  */
-export const usageRoutes = new Hono().get("/claude", async (c) => {
-  try {
-    const usage = await queryClaudeUsage();
-    return c.json({ usage });
-  } catch (err) {
-    logger.error({ err }, "failed to read Claude usage");
-    return c.json(
-      { error: err instanceof Error ? err.message : "unknown error" },
-      500,
-    );
-  }
-});
+export interface UsageRoutesOptions {
+  /** Returns the currently configured default agent type. */
+  getActiveAgentType?: () => string;
+  /** Reads Claude usage data from the underlying provider. */
+  queryUsage?: typeof queryClaudeUsage;
+}
+
+/**
+ * Creates the usage route group. The Claude endpoint only reads Claude
+ * credentials when the active agent is Claude.
+ */
+export function createUsageRoutes(options: UsageRoutesOptions = {}) {
+  const getActiveAgentType =
+    options.getActiveAgentType ?? (() => config.agents.default.type);
+  const queryUsage = options.queryUsage ?? queryClaudeUsage;
+
+  return new Hono().get("/claude", async (c) => {
+    const activeAgentType = getActiveAgentType();
+    if (activeAgentType !== "claude") {
+      return c.json({
+        usage: null,
+        unavailable: {
+          active_agent_type: activeAgentType,
+          reason:
+            "Claude usage is only available when the active agent is Claude.",
+        },
+      });
+    }
+
+    try {
+      const usage = await queryUsage();
+      return c.json({ usage });
+    } catch (err) {
+      logger.error({ err }, "failed to read Claude usage");
+      return c.json(
+        { error: err instanceof Error ? err.message : "unknown error" },
+        500,
+      );
+    }
+  });
+}
+
+export const usageRoutes = createUsageRoutes();

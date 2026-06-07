@@ -262,6 +262,9 @@ export function useSoulMemoryUpdate() {
 
 // --- Usage ---
 
+/**
+ * Claude usage data returned by the usage endpoint.
+ */
 export interface ClaudeUsage {
   five_hour: {
     utilization: number;
@@ -280,6 +283,14 @@ export interface ClaudeUsage {
 }
 
 /**
+ * Explains why Claude usage data cannot be shown for the active configuration.
+ */
+export interface ClaudeUsageUnavailable {
+  active_agent_type: string;
+  reason: string;
+}
+
+/**
  * Fetches Claude usage data from /api/usage/claude.
  */
 export function useClaudeUsage() {
@@ -288,14 +299,24 @@ export function useClaudeUsage() {
     queryFn: async () => {
       const res = await api.usage.claude.$get();
       const json = (await res.json()) as {
-        usage?: ClaudeUsage;
+        usage?: ClaudeUsage | null;
+        unavailable?: ClaudeUsageUnavailable;
         error?: string;
       };
       if (!res.ok) {
         throw new Error(json.error ?? "Failed to fetch usage");
       }
+      if (json.unavailable) {
+        return {
+          usage: null,
+          unavailable: json.unavailable,
+        };
+      }
       if (!json.usage) throw new Error("Invalid usage response");
-      return json.usage;
+      return {
+        usage: json.usage,
+        unavailable: null,
+      };
     },
   });
 }
